@@ -6,14 +6,25 @@ Media Metrics
 Media Metrics is a tool to compare the target video with the original source vidoe frame by frame and generate various the media quality metric values, such as MSE, PSNR, and SSIM etc.
 
 The tool support various file formats, such as mp4, avi etc, or even a sequence of seperated image files (*.png, *.jpg etc).
+It also support GPU to speed up the metric generating.
 
 # Installation
 
-To compile the software,
+To compile the software, you need to install OpenCV first, and then type
 
 ```
 ./configure
 make
+make install
+```
+
+If your OpenCV installed in other folder other than the system default area,
+you may want to use environment variable PKG_CONFIG_PATH, for example:
+
+```
+PKG_CONFIG_PATH=/path/to/lib/pkgconfig ./configure
+make
+make install
 ```
 
 # Usage
