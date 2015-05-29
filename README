@@ -3,7 +3,7 @@ Media Metrics
 
 # Introduction
 
-Media Metrics is a tool to compare the target video with the original source vidoe frame by frame and generate various the media quality metric values, such as MSE, PSNR, and SSIM etc.
+Media Metrics is a tool to compare the target video with the original source vidoe frame by frame and generate various media quality metric values, such as MSE, PSNR, and SSIM etc.
 
 The tool support various file formats, such as mp4, avi etc, or even a sequence of seperated image files (*.png, *.jpg etc).
 It also support GPU to speed up the metric generating.

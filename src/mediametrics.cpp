@@ -60,7 +60,10 @@
 #include <highgui.h>
 #else
 #include <opencv2/opencv.hpp>
+
+//#include <vector>
 #include <opencv2/gpu/gpu.hpp>        // GPU structures and methods
+
 #endif
 
 #ifdef __WIN32__                // or whatever
