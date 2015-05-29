@@ -61,7 +61,8 @@
 #else
 #include <opencv2/opencv.hpp>
 
-//#include <vector>
+#include <vector>
+using namespace std;
 #include <opencv2/gpu/gpu.hpp>        // GPU structures and methods
 
 #endif
