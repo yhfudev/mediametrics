@@ -6,7 +6,7 @@ AC_INIT(mediamatrics, 0.2.0, yhfudev@gmail.com)
 AC_CONFIG_SRCDIR([src/mediametrics.cpp])
 AC_CONFIG_HEADERS([config.h])
 
-AM_INIT_AUTOMAKE([1.10 -Wall no-define])
+AM_INIT_AUTOMAKE([-Wall no-define subdir-objects])
 
 # Checks for programs.
 AC_PROG_CXX
