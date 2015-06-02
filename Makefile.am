@@ -5,4 +5,4 @@ mediametrics_CFLAGS=-DUSEGPU=1 -DMYDEBUG=0 `pkg-config --cflags opencv` #$(OPENC
 
 mediametrics_CPPFLAGS=-DUSEGPU=1 -DMYDEBUG=0 `pkg-config --cflags opencv` #$(OPENCV_CFLAGS)
 
-mediametrics_LDFLAGS=`pkg-config --libs opencv`
+mediametrics_LDFLAGS= -lopencv_gpu `pkg-config --libs opencv` `pkg-config --libs x264`
