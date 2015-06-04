@@ -62,11 +62,11 @@ mkdir -p build
 cd build
 fi
 
-#${DN_EXEC}configure --enable-static --enable-shared --enable-debug
-#${DN_EXEC}configure --enable-static --enable-shared --enable-debug
-#./configure --enable-static --enable-shared --enable-debug
-#./configure --enable-static --enable-shared --disable-debug
+#${DN_EXEC}configure --enable-debug --enable-gpu
+#./configure --enable-debug --enable-gpu
 #make clean
 #make
+OPENCV_CFLAGS=-I../furnace-test/include/ OPENCV_LIBS=-L../furnace-test/lib PKG_CONFIG_PATH=../furnace-test/lib/pkgconfig/ ./configure --enable-debug --enable-gpu
+OPENCV_CFLAGS=-I../furnace-test/include/ OPENCV_LIBS=-L../furnace-test/lib PKG_CONFIG_PATH=../furnace-test/lib/pkgconfig/ make
 
 fi

@@ -10,7 +10,7 @@
 //   # if you use intel graphics card
 //   sudo apt-get install ocl-icd-libopencl1
 //   sudo apt-get autoremove
-//   rm mediamatrics; g++ -g $(pkg-config --cflags opencv) -o mediamatrics mediamatrics.cpp $(pkg-config --libs opencv) -lopencv_gpu -DUSEGPU=0 -DMYDEBUG=0
+//   rm mediamatrics; g++ -g $(pkg-config --cflags opencv) -o mediamatrics mediamatrics.cpp $(pkg-config --libs opencv) -lopencv_gpu -DUSE_GPU=0 -DMYDEBUG=0
 //
 // Install:
 //   sudo cp mediamatrics /usr/bin/
@@ -36,7 +36,7 @@
 #define PROG_VERSION_CSTR "0.2.0"
 
 //#define MYDEBUG 0
-//#define USEGPU 1
+//#define USE_GPU 1
 
 #include <stdio.h>
 #include <stdarg.h>
@@ -58,12 +58,15 @@
 #if 0
 #include <cv.h>
 #include <highgui.h>
+
 #else
 #include <opencv2/opencv.hpp>
 
 #include <vector>
 using namespace std;
-#include <opencv2/gpu/gpu.hpp>        // GPU structures and methods
+//#include <opencv2/gpu/gpu.hpp>        // GPU structures and methods
+#include <opencv2/core/cuda.hpp>
+#include <opencv2/core.hpp>
 
 #endif
 
@@ -75,8 +78,10 @@ using namespace std;
 #define PRIuSZ "zu"
 #endif
 
+#if USE_GPU
 extern char flg_use_gpu;
 #define IS_USEGPU() (flg_use_gpu)
+#endif
 
 int get_desktop_resolution (int &w, int &h);
 void cvShowManyImages(const char* title, int maxw, int maxh, int nArgs, ...);
@@ -103,46 +108,46 @@ typedef struct _ssim_pameters_t {
 double calculate_psnr_1 (IplImage * img_orig, IplImage * img_compared);
 int calculate_ssim_1 ( ssim_pameters_t * param, IplImage * img_orig, IplImage * img_compared, CvScalar * ret_mssim, CvScalar * ret_mean_cs);
 
-#if USEGPU
+#if USE_GPU
 struct BufferPSNR                                     // Optimized GPU versions
 {   // Data allocations are very expensive on GPU. Use a buffer to solve: allocate once reuse later.
-    cv::gpu::GpuMat gI1, gI2, gs, t1,t2;
-    cv::gpu::GpuMat buf;
+    cv::cuda::GpuMat gI1, gI2, gs, t1,t2;
+    cv::cuda::GpuMat buf;
 };
 double calculate_psnr_gpu_optimized (IplImage * img_orig, IplImage * img_compared, BufferPSNR& b);
 
 struct BufferMSSIM                                     // Optimized GPU versions
 {   // Data allocations are very expensive on GPU. Use a buffer to solve: allocate once reuse later.
-    cv::gpu::GpuMat gI1, gI2, gs, t1,t2;
+    cv::cuda::GpuMat gI1, gI2, gs, t1,t2;
 
-    cv::gpu::GpuMat I1_2, I2_2, I1_I2;
-    std::vector<cv::gpu::GpuMat> vI1, vI2;
+    cv::cuda::GpuMat I1_2, I2_2, I1_I2;
+    std::vector<cv::cuda::GpuMat> vI1, vI2;
 
-    cv::gpu::GpuMat mu1, mu2;
-    cv::gpu::GpuMat mu1_2, mu2_2, mu1_mu2;
+    cv::cuda::GpuMat mu1, mu2;
+    cv::cuda::GpuMat mu1_2, mu2_2, mu1_mu2;
 
-    cv::gpu::GpuMat sigma1_2, sigma2_2, sigma12;
-    cv::gpu::GpuMat t3;
-    cv::gpu::GpuMat t4;
+    cv::cuda::GpuMat sigma1_2, sigma2_2, sigma12;
+    cv::cuda::GpuMat t3;
+    cv::cuda::GpuMat t4;
 
-    cv::gpu::GpuMat ssim_map;
-    cv::gpu::GpuMat cs_map;
+    cv::cuda::GpuMat ssim_map;
+    cv::cuda::GpuMat cs_map;
 
-    cv::gpu::GpuMat buf;
+    cv::cuda::GpuMat buf;
 };
 int calculate_ssim_gpu_optimized ( ssim_pameters_t * param, IplImage * img_orig, IplImage * img_compared, CvScalar * ret_mssim, CvScalar * ret_mean_cs, struct BufferMSSIM& b);
 
 BufferPSNR bufferPSNR;
 //#define calculate_psnr_gpu(i1,i2) calculate_psnr_gpu_optimized(i1,i2,bufferPSNR)
-#define calculate_psnr_gpu(i1,i2) ((IS_USEGPU() && cv::gpu::getCudaEnabledDeviceCount())?calculate_psnr_gpu_optimized(i1,i2,bufferPSNR):calculate_psnr_1(i1,i2))
+#define calculate_psnr_gpu(i1,i2) ((IS_USEGPU() && cv::cuda::getCudaEnabledDeviceCount())?calculate_psnr_gpu_optimized(i1,i2,bufferPSNR):calculate_psnr_1(i1,i2))
 BufferMSSIM bufferMSSIM;
 //#define calculate_ssim_gpu(param,iplimg1,iplimg2,ret_mssim,ret_mean_cs) calculate_ssim_gpu_optimized(param,iplimg1,iplimg2,ret_mssim,ret_mean_cs,bufferMSSIM)
-#define calculate_ssim_gpu(param,iplimg1,iplimg2,ret_mssim,ret_mean_cs) ((IS_USEGPU() && cv::gpu::getCudaEnabledDeviceCount())?calculate_ssim_gpu_optimized(param,iplimg1,iplimg2,ret_mssim,ret_mean_cs,bufferMSSIM):calculate_ssim_1(param,iplimg1,iplimg2,ret_mssim,ret_mean_cs))
+#define calculate_ssim_gpu(param,iplimg1,iplimg2,ret_mssim,ret_mean_cs) ((IS_USEGPU() && cv::cuda::getCudaEnabledDeviceCount())?calculate_ssim_gpu_optimized(param,iplimg1,iplimg2,ret_mssim,ret_mean_cs,bufferMSSIM):calculate_ssim_1(param,iplimg1,iplimg2,ret_mssim,ret_mean_cs))
 
 #else
 #define calculate_psnr_gpu(i1,i2) calculate_psnr_1(i1,i2)
 #define calculate_ssim_gpu(param,iplimg1,iplimg2,ret_mssim,ret_mean_cs) calculate_ssim_1(param,iplimg1,iplimg2,ret_mssim,ret_mean_cs)
-#endif // USEGPU
+#endif // USE_GPU
 
 #define calculate_psnr_realval calculate_psnr_gpu
 
@@ -560,7 +565,9 @@ void usage(char * progname)
     output << "    " << progname << " [options] <source> <compared>" << std::endl;
     output << "" << std::endl;
     output << "Options:" << std::endl;
+#if USE_GPU
     output << "\t-g\tDisable GPU if available. default " << (IS_USEGPU()?"enabled":"disabled") << std::endl;
+#endif
     output << "\t-m\tshow images" << std::endl;
     output << "\t-o <output>\toutput file name" << std::endl;
     output << "\t-r <res>\tresolutions" << std::endl;
@@ -663,7 +670,9 @@ int main(int argc, char *argv[])
     int c;
     struct option longopts[]  = {
         { "showimage",    0, 0, 'm' },
+#if USE_GPU
         { "usegpu",       0, 0, 'g' },
+#endif
         { "output",       1, 0, 'o' },
         { "resolutions",  1, 0, 'r' },
         { "beginidx",     1, 0, 'b' },
@@ -675,7 +684,12 @@ int main(int argc, char *argv[])
         { 0,              0, 0,  0  },
     };
 
-    while ((c = getopt_long( argc, argv, "b:d:mo:r:s:vh", longopts, NULL )) != EOF) {
+#if USE_GPU
+#define CSTR_ARGS "b:d:mo:r:s:vh"
+#else
+#define CSTR_ARGS "b:d:mo:r:s:gvh"
+#endif
+    while ((c = getopt_long( argc, argv, CSTR_ARGS, longopts, NULL )) != EOF) {
         switch (c) {
         case 'b':
             start_idx = atoi (optarg);
@@ -696,9 +710,11 @@ int main(int argc, char *argv[])
             break;
         case 'h':
             break;
+#if USE_GPU
         case 'g':
             flg_use_gpu = 1;
             break;
+#endif
         case 'm':
             flg_showimg = 1;
             break;
@@ -1008,7 +1024,9 @@ calculate_psnr_1 (IplImage * img_orig, IplImage * img_compared)
     }
 }
 
-#if USEGPU
+#if USE_GPU
+// refer: https://github.com/Itseez/opencv/blob/master/samples/cpp/tutorial_code/gpu/gpu-basics-similarity/gpu-basics-similarity.cpp
+// http://docs.opencv.org/doc/tutorials/gpu/gpu-basics-similarity/gpu-basics-similarity.html
 
 double
 calculate_psnr_gpu_optimized (IplImage * img_orig, IplImage * img_compared, BufferPSNR& b)
@@ -1022,10 +1040,11 @@ calculate_psnr_gpu_optimized (IplImage * img_orig, IplImage * img_compared, Buff
     b.gI1.convertTo(b.t1, CV_32F);
     b.gI2.convertTo(b.t2, CV_32F);
 
-    cv::gpu::absdiff(b.t1.reshape(1), b.t2.reshape(1), b.gs);
-    cv::gpu::multiply(b.gs, b.gs, b.gs);
+    cv::cuda::absdiff(b.t1.reshape(1), b.t2.reshape(1), b.gs);
 
-    double sse = cv::gpu::sum(b.gs, b.buf)[0];
+    cv::cuda::multiply(b.gs, b.gs, b.gs);
+
+    double sse = cv::cuda::sum(b.gs, b.buf)[0];
 
     if( sse <= 1e-10) // for small values return zero
         return 0;
@@ -1036,7 +1055,7 @@ calculate_psnr_gpu_optimized (IplImage * img_orig, IplImage * img_compared, Buff
         return psnr;
     }
 }
-#endif // USEGPU
+#endif // USE_GPU
 
 int
 calculate_ssim_1 ( ssim_pameters_t * param, IplImage * img_orig, IplImage * img_compared, CvScalar * ret_mssim, CvScalar * ret_mean_cs)
@@ -1111,7 +1130,7 @@ calculate_ssim_1 ( ssim_pameters_t * param, IplImage * img_orig, IplImage * img_
     return 0;
 }
 
-#if USEGPU
+#if USE_GPU
 
 #ifdef CV_VERSION_EPOCH
 #define CVVER (CV_VERSION_EPOCH * 10000 + CV_VERSION_MAJOR * 100 + CV_VERSION_MINOR)
@@ -1120,47 +1139,47 @@ calculate_ssim_1 ( ssim_pameters_t * param, IplImage * img_orig, IplImage * img_
 #endif
 
 #if (CVVER <= 20301) // 2.3.1
-namespace cv { namespace gpu {
+namespace cv { namespace cuda {
 
 CV_EXPORTS void
 GaussianBlur(const GpuMat& src, GpuMat& dst, Size ksize, GpuMat& buf, double sigma1, double sigma2 = 0, int rowBorderType=BORDER_DEFAULT, int columnBorderType=-1, Stream& stream=Stream::Null() )
 {
-    cv::gpu::GaussianBlur(src, dst, ksize, sigma1, sigma2, rowBorderType, columnBorderType);
+    cv::cuda::GaussianBlur(src, dst, ksize, sigma1, sigma2, rowBorderType, columnBorderType);
 }
 
 CV_EXPORTS void
 add(const GpuMat& a, const GpuMat& b, GpuMat& c, const GpuMat& mask=GpuMat(), int dtype=-1, Stream& stream=Stream::Null() )
 {
-    cv::gpu::add (a,b,c,stream);
+    cv::cuda::add (a,b,c,stream);
 }
 
 CV_EXPORTS void
 add(const GpuMat& a, const Scalar& sc, GpuMat& c, const GpuMat& mask=GpuMat(), int dtype=-1, Stream& stream=Stream::Null() )
 {
-    cv::gpu::add (a,sc,c,stream);
+    cv::cuda::add (a,sc,c,stream);
 }
 
 CV_EXPORTS void
 subtract(const GpuMat& a, const GpuMat& b, GpuMat& c, const GpuMat& mask=GpuMat(), int dtype=-1, Stream& stream=Stream::Null() )
 {
-    cv::gpu::subtract (a, b, c, stream);
+    cv::cuda::subtract (a, b, c, stream);
 }
 
 CV_EXPORTS void
 multiply(const GpuMat& a, const GpuMat& b, GpuMat& c, double scale=1, int dtype=-1, Stream& stream=Stream::Null() )
 {
-    cv::gpu::multiply (a,b,c,stream);
+    cv::cuda::multiply (a,b,c,stream);
 }
 CV_EXPORTS void
 multiply(const GpuMat& a, const Scalar& sc, GpuMat& c, double scale=1, int dtype=-1, Stream& stream = Stream::Null())
 {
-    cv::gpu::multiply (a,sc,c,stream);
+    cv::cuda::multiply (a,sc,c,stream);
 }
 
 CV_EXPORTS void
 divide(const GpuMat& a, const GpuMat& b, GpuMat& c, double scale=1, int dtype=-1, Stream& stream=Stream::Null() )
 {
-    cv::gpu::divide (a,b,c,stream);
+    cv::cuda::divide (a,b,c,stream);
 }
 
 }}
@@ -1185,76 +1204,76 @@ calculate_ssim_gpu_optimized ( ssim_pameters_t * param, IplImage * img_orig, Ipl
     b.gI1.upload(i1);
     b.gI2.upload(i2);
 
-    cv::gpu::Stream stream;
+    cv::cuda::Stream stream;
 
     stream.enqueueConvert(b.gI1, b.t1, CV_32F);
     stream.enqueueConvert(b.gI2, b.t2, CV_32F);
 
-    cv::gpu::split(b.t1, b.vI1, stream);
-    cv::gpu::split(b.t2, b.vI2, stream);
+    cv::cuda::split(b.t1, b.vI1, stream);
+    cv::cuda::split(b.t2, b.vI2, stream);
     cv::Scalar mssim;
     cv::Scalar mean_cs;
 
-    cv::gpu::GpuMat buf;
+    cv::cuda::GpuMat buf;
 
     for( int i = 0; i < b.gI1.channels(); ++i )
     {
-        cv::gpu::multiply(b.vI2[i], b.vI2[i], b.I2_2, stream);        // I2^2
-        cv::gpu::multiply(b.vI1[i], b.vI1[i], b.I1_2, stream);        // I1^2
-        cv::gpu::multiply(b.vI1[i], b.vI2[i], b.I1_I2, stream);       // I1 * I2
+        cv::cuda::multiply(b.vI2[i], b.vI2[i], b.I2_2, stream);        // I2^2
+        cv::cuda::multiply(b.vI1[i], b.vI1[i], b.I1_2, stream);        // I1^2
+        cv::cuda::multiply(b.vI1[i], b.vI2[i], b.I1_I2, stream);       // I1 * I2
 
-        cv::gpu::GaussianBlur(b.vI1[i], b.mu1, cv::Size(param->gaussian_window, param->gaussian_window), buf, param->gaussian_sigma, 0, cv::BORDER_DEFAULT, -1, stream);
-        cv::gpu::GaussianBlur(b.vI2[i], b.mu2, cv::Size(param->gaussian_window, param->gaussian_window), buf, param->gaussian_sigma, 0, cv::BORDER_DEFAULT, -1, stream);
+        cv::cuda::GaussianBlur(b.vI1[i], b.mu1, cv::Size(param->gaussian_window, param->gaussian_window), buf, param->gaussian_sigma, 0, cv::BORDER_DEFAULT, -1, stream);
+        cv::cuda::GaussianBlur(b.vI2[i], b.mu2, cv::Size(param->gaussian_window, param->gaussian_window), buf, param->gaussian_sigma, 0, cv::BORDER_DEFAULT, -1, stream);
 
-        cv::gpu::multiply(b.mu1, b.mu1, b.mu1_2, stream);
-        cv::gpu::multiply(b.mu2, b.mu2, b.mu2_2, stream);
-        cv::gpu::multiply(b.mu1, b.mu2, b.mu1_mu2, stream);
+        cv::cuda::multiply(b.mu1, b.mu1, b.mu1_2, stream);
+        cv::cuda::multiply(b.mu2, b.mu2, b.mu2_2, stream);
+        cv::cuda::multiply(b.mu1, b.mu2, b.mu1_mu2, stream);
 
-        cv::gpu::GaussianBlur(b.I1_2, b.sigma1_2, cv::Size(param->gaussian_window, param->gaussian_window), buf, param->gaussian_sigma, 0, cv::BORDER_DEFAULT, -1, stream);
-        cv::gpu::subtract(b.sigma1_2, b.mu1_2, b.sigma1_2, cv::gpu::GpuMat(), -1, stream);
+        cv::cuda::GaussianBlur(b.I1_2, b.sigma1_2, cv::Size(param->gaussian_window, param->gaussian_window), buf, param->gaussian_sigma, 0, cv::BORDER_DEFAULT, -1, stream);
+        cv::cuda::subtract(b.sigma1_2, b.mu1_2, b.sigma1_2, cv::cuda::GpuMat(), -1, stream);
         //b.sigma1_2 -= b.mu1_2;  - This would result in an extra data transfer operation
 
-        cv::gpu::GaussianBlur(b.I2_2, b.sigma2_2, cv::Size(param->gaussian_window, param->gaussian_window), buf, param->gaussian_sigma, 0, cv::BORDER_DEFAULT, -1, stream);
-        cv::gpu::subtract(b.sigma2_2, b.mu2_2, b.sigma2_2, cv::gpu::GpuMat(), -1, stream);
+        cv::cuda::GaussianBlur(b.I2_2, b.sigma2_2, cv::Size(param->gaussian_window, param->gaussian_window), buf, param->gaussian_sigma, 0, cv::BORDER_DEFAULT, -1, stream);
+        cv::cuda::subtract(b.sigma2_2, b.mu2_2, b.sigma2_2, cv::cuda::GpuMat(), -1, stream);
         //b.sigma2_2 -= b.mu2_2;
 
-        cv::gpu::GaussianBlur(b.I1_I2, b.sigma12, cv::Size(param->gaussian_window, param->gaussian_window), buf, param->gaussian_sigma, 0, cv::BORDER_DEFAULT, -1, stream);
-        cv::gpu::subtract(b.sigma12, b.mu1_mu2, b.sigma12, cv::gpu::GpuMat(), -1, stream);
+        cv::cuda::GaussianBlur(b.I1_I2, b.sigma12, cv::Size(param->gaussian_window, param->gaussian_window), buf, param->gaussian_sigma, 0, cv::BORDER_DEFAULT, -1, stream);
+        cv::cuda::subtract(b.sigma12, b.mu1_mu2, b.sigma12, cv::cuda::GpuMat(), -1, stream);
         //b.sigma12 -= b.mu1_mu2;
 
         //here too it would be an extra data transfer due to call of operator*(Scalar, Mat)
-        cv::gpu::multiply(b.mu1_mu2, 2, b.t1, 1, -1, stream); //b.t1 = 2 * b.mu1_mu2 + C1;
-        cv::gpu::add(b.t1, C1, b.t1, cv::gpu::GpuMat(), -1, stream);
-        cv::gpu::multiply(b.sigma12, 2, b.t2, 1, -1, stream); //b.t2 = 2 * b.sigma12 + C2;
-        cv::gpu::add(b.t2, C2, b.t2, cv::gpu::GpuMat(), -12, stream);
+        cv::cuda::multiply(b.mu1_mu2, 2, b.t1, 1, -1, stream); //b.t1 = 2 * b.mu1_mu2 + C1;
+        cv::cuda::add(b.t1, C1, b.t1, cv::cuda::GpuMat(), -1, stream);
+        cv::cuda::multiply(b.sigma12, 2, b.t2, 1, -1, stream); //b.t2 = 2 * b.sigma12 + C2;
+        cv::cuda::add(b.t2, C2, b.t2, cv::cuda::GpuMat(), -12, stream);
 
-        cv::gpu::multiply(b.t1, b.t2, b.t3, 1, -1, stream);     // t3 = ((2*mu1_mu2 + C1).*(2*sigma12 + C2))
+        cv::cuda::multiply(b.t1, b.t2, b.t3, 1, -1, stream);     // t3 = ((2*mu1_mu2 + C1).*(2*sigma12 + C2))
 
-        cv::gpu::add(b.mu1_2, b.mu2_2, b.t1, cv::gpu::GpuMat(), -1, stream);
-        cv::gpu::add(b.t1, C1, b.t1, cv::gpu::GpuMat(), -1, stream);
+        cv::cuda::add(b.mu1_2, b.mu2_2, b.t1, cv::cuda::GpuMat(), -1, stream);
+        cv::cuda::add(b.t1, C1, b.t1, cv::cuda::GpuMat(), -1, stream);
 
-        cv::gpu::add(b.sigma1_2, b.sigma2_2, b.t4, cv::gpu::GpuMat(), -1, stream);
-        cv::gpu::add(b.t4, C2, b.t4, cv::gpu::GpuMat(), -1, stream);
+        cv::cuda::add(b.sigma1_2, b.sigma2_2, b.t4, cv::cuda::GpuMat(), -1, stream);
+        cv::cuda::add(b.t4, C2, b.t4, cv::cuda::GpuMat(), -1, stream);
 
 
-        cv::gpu::multiply(b.t1, b.t4, b.t1, 1, -1, stream);     // t1 =((mu1_2 + mu2_2 + C1).*(sigma1_2 + sigma2_2 + C2))
-        cv::gpu::divide(b.t3, b.t1, b.ssim_map, 1, -1, stream);      // ssim_map =  t3./t1;
+        cv::cuda::multiply(b.t1, b.t4, b.t1, 1, -1, stream);     // t1 =((mu1_2 + mu2_2 + C1).*(sigma1_2 + sigma2_2 + C2))
+        cv::cuda::divide(b.t3, b.t1, b.ssim_map, 1, -1, stream);      // ssim_map =  t3./t1;
 
-        cv::gpu::divide(b.t2, b.t4, b.cs_map, 1, -1, stream);      // cs_map =  t2./t4;
+        cv::cuda::divide(b.t2, b.t4, b.cs_map, 1, -1, stream);      // cs_map =  t2./t4;
 
         stream.waitForCompletion();
 
-        cv::Scalar s = cv::gpu::sum(b.ssim_map, b.buf);
+        cv::Scalar s = cv::cuda::sum(b.ssim_map, b.buf);
         mssim.val[i] = s.val[0] / (b.ssim_map.rows * b.ssim_map.cols);
 
-        s = cv::gpu::sum(b.cs_map, b.buf);
+        s = cv::cuda::sum(b.cs_map, b.buf);
         mean_cs.val[i] = s.val[0] / (b.cs_map.rows * b.cs_map.cols);
     }
     *ret_mssim = mssim;
     *ret_mean_cs = mean_cs;
     return 0;
 }
-#endif // USEGPU
+#endif // USE_GPU
 
 #if MYDEBUG
 int
