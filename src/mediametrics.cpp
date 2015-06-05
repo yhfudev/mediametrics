@@ -10,7 +10,7 @@
 //   # if you use intel graphics card
 //   sudo apt-get install ocl-icd-libopencl1
 //   sudo apt-get autoremove
-//   rm mediamatrics; g++ -g $(pkg-config --cflags opencv) -o mediamatrics mediamatrics.cpp $(pkg-config --libs opencv) -lopencv_gpu -DUSE_GPU=0 -DMYDEBUG=0
+//   rm mediamatrics; g++ -g $(pkg-config --cflags opencv) -o mediamatrics mediamatrics.cpp $(pkg-config --libs opencv) -lopencv_gpu -DUSE_CUDA=0 -DMYDEBUG=0
 //
 // Install:
 //   sudo cp mediamatrics /usr/bin/
@@ -36,7 +36,7 @@
 #define PROG_VERSION_CSTR "0.2.0"
 
 //#define MYDEBUG 0
-//#define USE_GPU 1
+//#define USE_CUDA 1
 
 #include <stdio.h>
 #include <stdarg.h>
@@ -65,8 +65,9 @@
 #include <vector>
 using namespace std;
 //#include <opencv2/gpu/gpu.hpp>        // GPU structures and methods
-#include <opencv2/core/cuda.hpp>
 #include <opencv2/core.hpp>
+#include <opencv2/cudaarithm.hpp>
+#include <opencv2/cudafilters.hpp>
 
 #endif
 
@@ -78,9 +79,9 @@ using namespace std;
 #define PRIuSZ "zu"
 #endif
 
-#if USE_GPU
-extern char flg_use_gpu;
-#define IS_USEGPU() (flg_use_gpu)
+#if USE_CUDA
+extern char flg_use_cuda;
+#define IS_USE_CUDA() (flg_use_cuda)
 #endif
 
 int get_desktop_resolution (int &w, int &h);
@@ -108,7 +109,7 @@ typedef struct _ssim_pameters_t {
 double calculate_psnr_1 (IplImage * img_orig, IplImage * img_compared);
 int calculate_ssim_1 ( ssim_pameters_t * param, IplImage * img_orig, IplImage * img_compared, CvScalar * ret_mssim, CvScalar * ret_mean_cs);
 
-#if USE_GPU
+#if USE_CUDA
 struct BufferPSNR                                     // Optimized GPU versions
 {   // Data allocations are very expensive on GPU. Use a buffer to solve: allocate once reuse later.
     cv::cuda::GpuMat gI1, gI2, gs, t1,t2;
@@ -147,7 +148,7 @@ BufferMSSIM bufferMSSIM;
 #else
 #define calculate_psnr_gpu(i1,i2) calculate_psnr_1(i1,i2)
 #define calculate_ssim_gpu(param,iplimg1,iplimg2,ret_mssim,ret_mean_cs) calculate_ssim_1(param,iplimg1,iplimg2,ret_mssim,ret_mean_cs)
-#endif // USE_GPU
+#endif // USE_CUDA
 
 #define calculate_psnr_realval calculate_psnr_gpu
 
@@ -565,8 +566,8 @@ void usage(char * progname)
     output << "    " << progname << " [options] <source> <compared>" << std::endl;
     output << "" << std::endl;
     output << "Options:" << std::endl;
-#if USE_GPU
-    output << "\t-g\tDisable GPU if available. default " << (IS_USEGPU()?"enabled":"disabled") << std::endl;
+#if USE_CUDA
+    output << "\t-g\tDisable CUDA if available. default " << (IS_USE_CUDA()?"enabled":"disabled") << std::endl;
 #endif
     output << "\t-m\tshow images" << std::endl;
     output << "\t-o <output>\toutput file name" << std::endl;
@@ -650,7 +651,7 @@ close_target_resolution (target_resolution_t * trout, size_t trsize)
     }
 }
 
-char flg_use_gpu = 1;
+char flg_use_cuda = 1;
 
 int main(int argc, char *argv[])
 {
@@ -670,7 +671,7 @@ int main(int argc, char *argv[])
     int c;
     struct option longopts[]  = {
         { "showimage",    0, 0, 'm' },
-#if USE_GPU
+#if USE_CUDA
         { "usegpu",       0, 0, 'g' },
 #endif
         { "output",       1, 0, 'o' },
@@ -684,7 +685,7 @@ int main(int argc, char *argv[])
         { 0,              0, 0,  0  },
     };
 
-#if USE_GPU
+#if USE_CUDA
 #define CSTR_ARGS "b:d:mo:r:s:vh"
 #else
 #define CSTR_ARGS "b:d:mo:r:s:gvh"
@@ -710,9 +711,9 @@ int main(int argc, char *argv[])
             break;
         case 'h':
             break;
-#if USE_GPU
+#if USE_CUDA
         case 'g':
-            flg_use_gpu = 1;
+            flg_use_cuda = 1;
             break;
 #endif
         case 'm':
@@ -1024,7 +1025,7 @@ calculate_psnr_1 (IplImage * img_orig, IplImage * img_compared)
     }
 }
 
-#if USE_GPU
+#if USE_CUDA
 // refer: https://github.com/Itseez/opencv/blob/master/samples/cpp/tutorial_code/gpu/gpu-basics-similarity/gpu-basics-similarity.cpp
 // http://docs.opencv.org/doc/tutorials/gpu/gpu-basics-similarity/gpu-basics-similarity.html
 
@@ -1055,7 +1056,7 @@ calculate_psnr_gpu_optimized (IplImage * img_orig, IplImage * img_compared, Buff
         return psnr;
     }
 }
-#endif // USE_GPU
+#endif // USE_CUDA
 
 int
 calculate_ssim_1 ( ssim_pameters_t * param, IplImage * img_orig, IplImage * img_compared, CvScalar * ret_mssim, CvScalar * ret_mean_cs)
@@ -1130,7 +1131,7 @@ calculate_ssim_1 ( ssim_pameters_t * param, IplImage * img_orig, IplImage * img_
     return 0;
 }
 
-#if USE_GPU
+#if USE_CUDA
 
 #ifdef CV_VERSION_EPOCH
 #define CVVER (CV_VERSION_EPOCH * 10000 + CV_VERSION_MAJOR * 100 + CV_VERSION_MINOR)
@@ -1206,8 +1207,8 @@ calculate_ssim_gpu_optimized ( ssim_pameters_t * param, IplImage * img_orig, Ipl
 
     cv::cuda::Stream stream;
 
-    stream.enqueueConvert(b.gI1, b.t1, CV_32F);
-    stream.enqueueConvert(b.gI2, b.t2, CV_32F);
+    b.gI1.convertTo(b.t1, CV_32F, stream);
+    b.gI2.convertTo(b.t2, CV_32F, stream);
 
     cv::cuda::split(b.t1, b.vI1, stream);
     cv::cuda::split(b.t2, b.vI2, stream);
@@ -1215,29 +1216,34 @@ calculate_ssim_gpu_optimized ( ssim_pameters_t * param, IplImage * img_orig, Ipl
     cv::Scalar mean_cs;
 
     cv::cuda::GpuMat buf;
+    cv::Ptr<cv::cuda::Filter> gauss
+         = cv::cuda::createGaussianFilter(b.vI1[0].type()
+                , -1
+                , cv::Size(param->gaussian_window, param->gaussian_window)
+                , param->gaussian_sigma);
 
     for( int i = 0; i < b.gI1.channels(); ++i )
     {
-        cv::cuda::multiply(b.vI2[i], b.vI2[i], b.I2_2, stream);        // I2^2
-        cv::cuda::multiply(b.vI1[i], b.vI1[i], b.I1_2, stream);        // I1^2
-        cv::cuda::multiply(b.vI1[i], b.vI2[i], b.I1_I2, stream);       // I1 * I2
+        cv::cuda::multiply(b.vI2[i], b.vI2[i], b.I2_2, 1, -1, stream);        // I2^2
+        cv::cuda::multiply(b.vI1[i], b.vI1[i], b.I1_2, 1, -1, stream);        // I1^2
+        cv::cuda::multiply(b.vI1[i], b.vI2[i], b.I1_I2, 1, -1, stream);       // I1 * I2
 
-        cv::cuda::GaussianBlur(b.vI1[i], b.mu1, cv::Size(param->gaussian_window, param->gaussian_window), buf, param->gaussian_sigma, 0, cv::BORDER_DEFAULT, -1, stream);
-        cv::cuda::GaussianBlur(b.vI2[i], b.mu2, cv::Size(param->gaussian_window, param->gaussian_window), buf, param->gaussian_sigma, 0, cv::BORDER_DEFAULT, -1, stream);
+        gauss->apply(b.vI1[i], b.mu1, stream);
+        gauss->apply(b.vI2[i], b.mu2, stream);
 
-        cv::cuda::multiply(b.mu1, b.mu1, b.mu1_2, stream);
-        cv::cuda::multiply(b.mu2, b.mu2, b.mu2_2, stream);
-        cv::cuda::multiply(b.mu1, b.mu2, b.mu1_mu2, stream);
+        cv::cuda::multiply(b.mu1, b.mu1, b.mu1_2, 1, -1, stream);
+        cv::cuda::multiply(b.mu2, b.mu2, b.mu2_2, 1, -1, stream);
+        cv::cuda::multiply(b.mu1, b.mu2, b.mu1_mu2, 1, -1, stream);
 
-        cv::cuda::GaussianBlur(b.I1_2, b.sigma1_2, cv::Size(param->gaussian_window, param->gaussian_window), buf, param->gaussian_sigma, 0, cv::BORDER_DEFAULT, -1, stream);
+        gauss->apply(b.I1_2, b.sigma1_2, stream);
         cv::cuda::subtract(b.sigma1_2, b.mu1_2, b.sigma1_2, cv::cuda::GpuMat(), -1, stream);
         //b.sigma1_2 -= b.mu1_2;  - This would result in an extra data transfer operation
 
-        cv::cuda::GaussianBlur(b.I2_2, b.sigma2_2, cv::Size(param->gaussian_window, param->gaussian_window), buf, param->gaussian_sigma, 0, cv::BORDER_DEFAULT, -1, stream);
+        gauss->apply(b.I2_2, b.sigma2_2, stream);
         cv::cuda::subtract(b.sigma2_2, b.mu2_2, b.sigma2_2, cv::cuda::GpuMat(), -1, stream);
         //b.sigma2_2 -= b.mu2_2;
 
-        cv::cuda::GaussianBlur(b.I1_I2, b.sigma12, cv::Size(param->gaussian_window, param->gaussian_window), buf, param->gaussian_sigma, 0, cv::BORDER_DEFAULT, -1, stream);
+        gauss->apply(b.I1_I2, b.sigma12, stream);
         cv::cuda::subtract(b.sigma12, b.mu1_mu2, b.sigma12, cv::cuda::GpuMat(), -1, stream);
         //b.sigma12 -= b.mu1_mu2;
 
@@ -1273,7 +1279,8 @@ calculate_ssim_gpu_optimized ( ssim_pameters_t * param, IplImage * img_orig, Ipl
     *ret_mean_cs = mean_cs;
     return 0;
 }
-#endif // USE_GPU
+
+#endif // USE_CUDA
 
 #if MYDEBUG
 int
