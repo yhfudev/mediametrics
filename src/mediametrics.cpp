@@ -1483,7 +1483,7 @@ calculate_msssim_scalar(ssim_pameters_t * param, IplImage * source1, IplImage * 
 
 
 #ifdef DEBUG
-    cout<<"\nAlpha = "<<alpha[0]<<" "<<alpha[1]<<" "<<alpha[2]<<" "<<alpha[3]<<"\n";
+    //cout<<"\nAlpha = "<<alpha[0]<<" "<<alpha[1]<<" "<<alpha[2]<<" "<<alpha[3]<<"\n";
     cout<<"\nBeta = "<<beta[0]<<" "<<beta[1]<<" "<<beta[2]<<" "<<beta[3]<<"\n";
     cout<<"\nGamma = "<<gamma[0]<<" "<<gamma[1]<<" "<<gamma[2]<<" "<<gamma[3]<<"\n";
 #endif

@@ -66,7 +66,7 @@ fi
 #./configure --enable-debug --enable-gpu
 #make clean
 #make
-OPENCV_CFLAGS=-I../furnace-test/include/ OPENCV_LIBS=-L../furnace-test/lib PKG_CONFIG_PATH=../furnace-test/lib/pkgconfig/ ./configure --enable-debug --enable-gpu
+OPENCV_CFLAGS=-I../furnace-test/include/ OPENCV_LIBS=-L../furnace-test/lib PKG_CONFIG_PATH=../furnace-test/lib/pkgconfig/ ./configure --enable-debug --with-cuda=../furnace-test/opt/cuda7/
 OPENCV_CFLAGS=-I../furnace-test/include/ OPENCV_LIBS=-L../furnace-test/lib PKG_CONFIG_PATH=../furnace-test/lib/pkgconfig/ make
 
 fi
